@@ -24,11 +24,16 @@ var s3Options = {
 var AssetService = {};
 
 AssetService.serveFile = function (req, res, asset) {
+  var fileAdapter = SkipperDisk(s3Options);
+
   // Stream the file to the user
-  fsx.createReadStream(asset.fd)
+  fileAdapter.read(asset.fd)
     .on('error', function (err) {
-      res.serverError('An error occurred while accessing asset.', err);
-      sails.log.error('Unable to access asset:', asset.fd);
+      sails.log.error('Unable to access asset:', asset.fd, 'Error:', err);
+	  
+	  if (!res.headersSent) {
+        return res.serverError('An error occurred while accessing asset.');
+      }
     })
     .on('open', function () {
       // Send file properties in header
@@ -94,8 +99,10 @@ AssetService.getHash = function (fd, type = "sha1", encoding = "hex") {
     var hash = crypto.createHash(type);
     hash.setEncoding(encoding);
 
-    fsx
-      .createReadStream(fd)
+    var fileAdapter = SkipperDisk(s3Options);
+
+    fileAdapter
+      .read(fd)
       .on("error", function (err) {
         reject(err);
       })
